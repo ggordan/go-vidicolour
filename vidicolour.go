@@ -22,17 +22,34 @@ func colourSample(path string) {
 		panic(err)
 	}
 
+	color_index := make(chan<- [][3]uint8)
 	decoded_image, _ := png.Decode(immg)
 	max_y := decoded_image.Bounds().Max.Y
 	max_x := decoded_image.Bounds().Max.X
 
 	go func() {
-		for i := 0; i <= max_y; i++ {
-			for y := 0; y <= max_x; y++ {
-				log.Printf("%v \n", decoded_image.At(max_x-y, max_y-i))
+		var color_map [][3]uint8
+		for i := 0; i <= max_y; i += 5 {
+			for y := 0; y <= max_x; y += 50 {
+				var r, g, b = convert(decoded_image.At(max_x-y, max_y-i).RGBA())
+				var rgb = [3]uint8{r, g, b}
+				color_map = append(color_map, rgb)
 			}
 		}
+
+		color_index <- color_map
 	}()
+
+	// Get the dominant color
+	dominantColor(color_index)
+}
+
+func dominantColor(colors chan<- [][3]uint8) {
+	log.Printf("%s", colors)
+}
+
+func convert(r, g, b, _ uint32) (uint8, uint8, uint8) {
+	return uint8(r), uint8(g), uint8(b)
 }
 
 func main() {
