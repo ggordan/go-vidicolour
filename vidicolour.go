@@ -1,17 +1,17 @@
 package main
 
 import (
-	"code.google.com/p/go-opencv/trunk/opencv"
 	"fmt"
 	"image/png"
-	"log"
 	"os"
+
+	"github.com/lazywei/go-opencv/opencv"
 )
 
-func saveImages(img_path string, img *opencv.IplImage, fpm int) {
-	opencv.SaveImage(img_path, img, 0)
-	opencv.WaitKey(fpm)
-	colourSample(img_path)
+func saveImages(path int, cap *opencv.Capture, fpm int) {
+	img := cap.QueryFrame()
+	opencv.SaveImage(fmt.Sprintf("./%d.png", path), img, fpm)
+	go colourSample(fmt.Sprintf("./%d.png", path))
 }
 
 func colourSample(path string) {
@@ -41,11 +41,11 @@ func colourSample(path string) {
 	}()
 
 	// Get the dominant color
-	dominantColor(color_index)
+	fmt.Println(dominantColor(color_index))
 }
 
-func dominantColor(colors chan<- [][3]uint8) {
-	log.Printf("%s", colors)
+func dominantColor(colors chan<- [][3]uint8) string {
+	return fmt.Sprintf("%v", colors)
 }
 
 func convert(r, g, b, _ uint32) (uint8, uint8, uint8) {
@@ -54,15 +54,7 @@ func convert(r, g, b, _ uint32) (uint8, uint8, uint8) {
 
 func main() {
 
-	img_path := "sample_images/"
-
-	filename := "movie.mkv"
-	if len(os.Args) == 2 {
-		filename = os.Args[1]
-	} else {
-		fmt.Printf("Usage: go run vidicolour.go video_file \n")
-		os.Exit(0)
-	}
+	filename := "mov.mp4"
 
 	cap := opencv.NewFileCapture(filename)
 	if cap == nil {
@@ -70,23 +62,25 @@ func main() {
 	}
 	defer cap.Release()
 
-	// Get an image every 5 minutes
+	// // Get an image every 5 minutes
 	fpm := int(cap.GetProperty(opencv.CV_CAP_PROP_FPS) * (60 * 5))
-	// // First query
-	img := cap.QueryFrame()
+
+	var img *opencv.IplImage
+
+	c := make(chan int)
 
 	i := 1
 	for {
 		cap.SetProperty(opencv.CV_CAP_PROP_POS_FRAMES, float64(fpm*i))
 		img = cap.QueryFrame()
 		if img != nil {
-			img_path = fmt.Sprintf("sample_images/%d.png", i)
-			go saveImages(img_path, img, fpm) // offload to goroutine
+			go saveImages(i, cap, fpm)
 			i++
 		} else {
 			break
 		}
-
 	}
 
+	done := <-c
+	fmt.Println(done)
 }
